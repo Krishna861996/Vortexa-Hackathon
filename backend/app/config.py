@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     codequest_storage: str = "supabase"
     supabase_url: str = ""
     supabase_secret_key: str = ""
+    supabase_publishable_key: str = ""
     cors_origins: str = "http://localhost:3000"
     codequest_runner: str = "piston"
     piston_url: str = "https://emkc.org/api/v2/piston"
@@ -21,8 +22,8 @@ class Settings(BaseSettings):
     def validate_storage(self):
         if self.codequest_storage not in {"supabase", "local"}:
             raise ValueError("CODEQUEST_STORAGE must be 'supabase' or 'local'")
-        if self.codequest_storage == "supabase" and not (self.supabase_url and self.supabase_secret_key):
-            raise ValueError("Supabase mode requires SUPABASE_URL and SUPABASE_SECRET_KEY; set CODEQUEST_STORAGE=local for the local demo")
+        if self.codequest_storage == "supabase" and not (self.supabase_url and (self.supabase_publishable_key or self.supabase_secret_key)):
+            raise ValueError("Supabase mode requires SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY")
         return self
 
     @property

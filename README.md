@@ -1,5 +1,9 @@
 # CodeQuest AI
 
+## Gemini coding mentor
+
+Add `GEMINI_API_KEY=your-key` and `GEMINI_MODEL=gemini-flash-latest` to `backend/.env`, then restart FastAPI. The mentor unlocks after all hints are revealed and answers only when the learner asks. The backend sends the challenge description, concept tags, question, and current code to Gemini; hidden tests are excluded. Responses are labeled Gemini mentor only when Gemini returns an answer. Missing keys, service errors, and quota limits use the local mentor fallback. Keep the key in the ignored backend environment file.
+
 Beginner Python practice with a Next.js frontend, FastAPI backend, and Supabase
 database. Learners browse challenges, run Python solutions, view per-test
 feedback, and track their progress.
@@ -63,7 +67,9 @@ supabase/
    The challenge and progress pages show a connection error when FastAPI is
    stopped. The local demo mode lets you browse all six challenges without
    Supabase credentials.
-5. Code execution uses Piston by default, so Docker is not required. Set `PISTON_URL` to your hosted or self-hosted Piston instance. The public instance may require `PISTON_TOKEN`; leave it blank only if your instance permits anonymous requests.
+5. The website's **Run code** button uses free Pyodide in the browser to run visible tests. No Docker or execution API key is needed. The first run downloads Pyodide, so an internet connection is required. Results and code are saved through `/practice-attempts` for progress and level unlocks. These are browser-reported practice results, not server-verified hidden-test results.
+
+   The separate `/attempts` API uses Piston by default. To use it, set `PISTON_URL` to your hosted or self-hosted Piston instance. The public instance may require `PISTON_TOKEN`; leave it blank only if your instance permits anonymous requests.
    For the optional Docker runner, set `CODEQUEST_RUNNER=docker`, then install Docker and start a **Linux container** daemon.
    From the repository root, build the runner image:
 
@@ -73,7 +79,7 @@ supabase/
    ```
 
    The second command must print `linux`. Keep this image on the host running
-   the API. Until Docker and the image are available, Run displays a setup
+   the API. Until Docker and the image are available, the Docker submission API returns a setup
    error and saves no attempt; the API never executes submissions on the host.
 
 Run tests from `backend/` with `python -m unittest discover -s tests -v`.
@@ -90,6 +96,7 @@ Check the frontend from `frontend/` with `npm run typecheck` and `npm run build`
 | GET | `/api/challenges/{id}` | Get prompt, starter code, visible tests, and hint count |
 | POST | `/api/challenges/{id}/hints/next` | Get the next hint for a learner |
 | POST | `/api/challenges/{id}/attempts` | Grade code and save its result |
+| POST | `/api/challenges/{id}/practice-attempts` | Save browser-reported visible-test practice results |
 | GET | `/api/learners/{id}/progress` | Get attempts, solved count, and concepts |
 
 The seeded learner ID is `demo-learner`. POST bodies:
@@ -106,6 +113,16 @@ for the hint route, and:
 
 for the attempt route.
 
+The browser practice route also requires `categories`, with one category per visible test. Stored results have `execution: "browser"`; server runner results have `execution: "server"`. Hidden test contents are never sent to the browser runner.
+
+## Levels and celebrations
+
+The path is **Beginner → Easy → Medium → Hard → Advanced**. Complete every challenge in earlier levels to unlock the next level. A completion requires all visible practice tests to pass in one saved attempt. Failed attempts do not unlock levels; previously saved passing attempts still count. Empty levels are skipped. The API enforces the same gate for practice submissions, server submissions, hints, and mentor requests.
+
+The library shows lock icons and the requirement for each locked challenge. Successful practice displays a short blue-and-yellow confetti celebration and a link to the next available challenge. The Python logo gently floats inside a rotating orbit. Animations respect the device's reduced-motion setting.
+
+Progress uses the shared `demo-learner` account and survives page reloads. Browser practice results are self-reported and suitable for this learning demo, not tamper-proof grading or certification.
+
 Hidden tests reside in a separate database table, are queried only by the
 backend, and are never returned in challenge details. Submission responses
 report a category for each hidden test without its input, expected value, or
@@ -118,7 +135,7 @@ They become more specific without supplying finished code. After a failed
 submission, the API returns `failure_explanation` and `feedback_source: "local"`.
 This deterministic fallback uses only result categories and public concept
 tags, so its advice is a likely next check rather than an AI diagnosis. No AI
-feedback service is configured. The challenge page offers a button back to the
+feedback service is used for this automatic explanation; the optional Gemini mentor is requested separately. The challenge page offers a button back to the
 editor after a hint or failed result, preserving the learner's code.
 
 Progress is calculated from saved attempts, once per tagged concept per
@@ -139,7 +156,7 @@ concept (or a solved one if needed) and states the evidence. The added **Sum a
 list** challenge gives lists and loops a smaller practice option. Recommendations
 do not reveal hidden test data.
 
-Each test launches a fresh Docker container. The API passes the submitted code,
+When the Docker runner is selected, each server test launches a fresh Docker container. The API passes the submitted code,
 function name, and one test input through stdin; the expected value remains in
 the API process. The container uses no network, a read-only root filesystem, a
 non-root user, dropped capabilities, Docker's built-in seccomp profile, no new

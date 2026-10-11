@@ -97,6 +97,14 @@ HIDDEN_TESTS: dict[str, list[dict[str, Any]]] = {
 }
 
 
+from .extra_challenges import EXTRA_CHALLENGES, EXTRA_HIDDEN_TESTS
+
+CHALLENGES.extend(EXTRA_CHALLENGES)
+HIDDEN_TESTS.update(EXTRA_HIDDEN_TESTS)
+_levels = ["beginner", "easy", "medium", "hard", "advanced"]
+CHALLENGES.sort(key=lambda item: _levels.index(item["difficulty"]))
+
+
 class LocalRepository:
     def __init__(self, path: Path | None = None):
         self.path = path or Path(__file__).resolve().parent.parent / "demo.sqlite3"
@@ -129,6 +137,11 @@ class LocalRepository:
     def update_hint_positions(self, learner_id: str, positions: dict[str, int]) -> None:
         with closing(sqlite3.connect(self.path)) as db:
             db.execute("UPDATE learners SET hint_positions = ? WHERE id = ?", (json.dumps(positions), learner_id))
+            db.commit()
+
+    def ensure_learner(self, learner_id: str) -> None:
+        with closing(sqlite3.connect(self.path)) as db:
+            db.execute("INSERT OR IGNORE INTO learners (id, hint_positions) VALUES (?, '{}')", (learner_id,))
             db.commit()
 
     def save_attempt(self, attempt: dict[str, Any]) -> dict[str, Any]:

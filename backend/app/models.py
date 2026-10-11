@@ -20,6 +20,8 @@ class ChallengeSummary(BaseModel):
     title: str
     difficulty: Difficulty
     concept_tags: list[str]
+    locked: bool = False
+    unlock_message: str | None = None
 
 
 class ChallengeDetail(ChallengeSummary):
@@ -31,7 +33,6 @@ class ChallengeDetail(ChallengeSummary):
 
 
 class HintRequest(BaseModel):
-    learner_id: str = "demo-learner"
     hint_index: int | None = Field(default=None, ge=0)
 
 
@@ -43,7 +44,6 @@ class HintResponse(BaseModel):
 
 class MentorRequest(BaseModel):
     mode: Literal["guidance", "solution"] = "guidance"
-    learner_id: str = "demo-learner"
     code: str = Field(default="", max_length=6000)
     question: str = Field(min_length=1, max_length=1000)
 
@@ -53,7 +53,6 @@ class MentorResponse(BaseModel):
 
 
 class Submission(BaseModel):
-    learner_id: str = "demo-learner"
     code: str = Field(min_length=1, max_length=6000)
 
 
@@ -61,6 +60,11 @@ class TestResult(BaseModel):
     name: str
     visibility: Literal["visible", "hidden"]
     category: ResultCategory
+    execution: Literal["server", "browser"] = "server"
+
+
+class BrowserSubmission(Submission):
+    categories: list[ResultCategory] = Field(min_length=1, max_length=100)
 
 
 class AttemptResponse(BaseModel):

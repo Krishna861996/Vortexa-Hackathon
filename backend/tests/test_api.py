@@ -9,9 +9,12 @@ from app.main import get_challenge, get_progress, next_hint, submit_code  # noqa
 from app.main import app  # noqa: E402
 from app.models import HintRequest, Submission  # noqa: E402
 from app.repository import get_repository  # noqa: E402
-from app.runner import get_runner  # noqa: E402
+from app.runner import DockerRunner, get_runner  # noqa: E402
 from app.models import TestResult  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from app.auth import Identity, optional_identity
+
+TEST_IDENTITY = Identity("demo-learner", "test-token")
 
 
 class FakeRepository:
@@ -66,25 +69,29 @@ class FakeRunner:
 class ApiTests(unittest.TestCase):
     def setUp(self):
         self.repository = FakeRepository()
+        app.dependency_overrides[optional_identity] = lambda: TEST_IDENTITY
+
+    def tearDown(self):
+        app.dependency_overrides.clear()
 
     def test_detail_excludes_hidden_tests_and_unrequested_hints(self):
-        detail = get_challenge("add-numbers", self.repository).model_dump()
+        detail = get_challenge("add-numbers", self.repository, None).model_dump()
         self.assertNotIn("hidden_tests", detail)
         self.assertNotIn("hints", detail)
         self.assertEqual(detail["hint_count"], 2)
 
     def test_hint_sequence(self):
-        first = next_hint("add-numbers", HintRequest(), self.repository)
-        second = next_hint("add-numbers", HintRequest(), self.repository)
-        third = next_hint("add-numbers", HintRequest(), self.repository)
+        first = next_hint("add-numbers", HintRequest(), self.repository, TEST_IDENTITY)
+        second = next_hint("add-numbers", HintRequest(), self.repository, TEST_IDENTITY)
+        third = next_hint("add-numbers", HintRequest(), self.repository, TEST_IDENTITY)
         self.assertEqual((first.hint, second.hint, third.hint), ("Use +", "Return a + b", None))
 
     def test_submission_and_progress(self):
-        attempt = submit_code("add-numbers", Submission(code="def add_numbers(a, b):\n    return a + b"), self.repository, FakeRunner())
+        attempt = submit_code("add-numbers", Submission(code="def add_numbers(a, b):\n    return a + b"), self.repository, FakeRunner(), TEST_IDENTITY)
         self.assertTrue(attempt.passed)
         self.assertEqual(self.repository.attempts[0]["submitted_code"], "def add_numbers(a, b):\n    return a + b")
         self.assertNotIn("input", attempt.model_dump_json())
-        progress = get_progress("demo-learner", self.repository)
+        progress = get_progress("demo-learner", self.repository, TEST_IDENTITY)
         self.assertEqual(progress.total_attempts, 1)
         self.assertEqual(progress.solved_challenges, 1)
 
@@ -120,6 +127,7 @@ class ApiTests(unittest.TestCase):
 
     def test_missing_docker_returns_setup_error_without_saving(self):
         app.dependency_overrides[get_repository] = lambda: self.repository
+        app.dependency_overrides[get_runner] = DockerRunner
         try:
             with patch("app.runner.subprocess.run", side_effect=FileNotFoundError):
                 response = TestClient(app).post(

@@ -10,19 +10,24 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.local_repository import LocalRepository  # noqa: E402
 from app.main import app  # noqa: E402
 from app.repository import get_repository  # noqa: E402
+from app.runner import DockerRunner, get_runner  # noqa: E402
+from app.auth import optional_identity
+from tests.test_api import TEST_IDENTITY
 
 
 class LocalRepositoryTests(unittest.TestCase):
-    def test_six_challenges_progress_and_hidden_tests(self):
+    def test_catalog_progress_and_hidden_tests(self):
         path = Path(__file__).parent / "demo-test.sqlite3"
         try:
             repository = LocalRepository(path)
             app.dependency_overrides[get_repository] = lambda: repository
+            app.dependency_overrides[get_runner] = DockerRunner
+            app.dependency_overrides[optional_identity] = lambda: TEST_IDENTITY
             try:
                 client = TestClient(app)
                 listing = client.get("/api/challenges")
                 self.assertEqual(listing.status_code, 200)
-                self.assertEqual(len(listing.json()), 6)
+                self.assertEqual(len(listing.json()), 25)
                 detail = client.get("/api/challenges/add-numbers")
                 self.assertEqual(detail.status_code, 200)
                 self.assertNotIn("hidden_tests", detail.text)
@@ -62,7 +67,9 @@ class LocalRepositoryTests(unittest.TestCase):
                 self.assertEqual(loops["status"], "practicing")
                 self.assertEqual(loops["recent_results"], ["wrong output", "wrong output"])
                 suggestion = next(item for item in updated["recommendations"] if item["concept"] == "loops")
-                self.assertEqual(suggestion["challenge_id"], "sum-list")
+                recommended = repository.get_challenge(suggestion["challenge_id"])
+                self.assertEqual(recommended["difficulty"], "easy")
+                self.assertIn("loops", recommended["concept_tags"])
             finally:
                 app.dependency_overrides.clear()
         finally:

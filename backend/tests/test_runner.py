@@ -74,7 +74,7 @@ class RunnerTests(unittest.TestCase):
             "passed", "wrong output", "runtime error", "timeout",
         ])
         self.assertEqual(results[-1].model_dump(), {
-            "name": "hidden-1", "visibility": "hidden", "category": "timeout",
+            "name": "hidden-1", "visibility": "hidden", "category": "timeout", "execution": "server",
         })
 
     def test_missing_docker_fails_closed(self):

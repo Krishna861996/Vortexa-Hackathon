@@ -2,8 +2,10 @@ from functools import lru_cache
 from typing import Any
 
 from supabase import Client, create_client
+from fastapi import Depends
 
 from .config import get_settings
+from .auth import Identity, optional_identity
 
 
 @lru_cache
@@ -28,22 +30,27 @@ class Repository:
     def get_challenge(self, challenge_id: str) -> dict[str, Any] | None:
         response = (
             self.client.table("challenges")
-            .select("id,title,description,difficulty,function_name,starter_code,visible_tests,hints,concept_tags")
+            .select("id,title,description,difficulty,function_name,starter_code,visible_tests,concept_tags")
             .eq("id", challenge_id)
             .limit(1)
             .execute()
         )
-        return response.data[0] if response.data else None
+        if not response.data:
+            return None
+        from .local_repository import CHALLENGES
+        challenge = response.data[0]
+        seed = next((item for item in CHALLENGES if item["id"] == challenge_id), None)
+        challenge["hints"] = seed["hints"] if seed else []
+        return challenge
 
     def get_hidden_tests(self, challenge_id: str) -> list[dict[str, Any]]:
-        response = (
-            self.client.table("challenge_hidden_tests")
-            .select("tests")
-            .eq("challenge_id", challenge_id)
-            .limit(1)
-            .execute()
-        )
-        return response.data[0]["tests"] if response.data else []
+        # Never grant user tokens access to hidden tests. Keep the runner's
+        # private fixtures in the same server-only seed source used for SQL.
+        from .local_repository import HIDDEN_TESTS
+        return HIDDEN_TESTS.get(challenge_id, []).copy()
+
+    def ensure_learner(self, learner_id: str) -> None:
+        self.client.table("learners").upsert({"id": learner_id}, on_conflict="id", ignore_duplicates=True).execute()
 
     def get_learner(self, learner_id: str) -> dict[str, Any] | None:
         response = (
@@ -79,9 +86,14 @@ class Repository:
                 return attempts
 
 
-def get_repository() -> Repository:
+def get_repository(identity: Identity | None = Depends(optional_identity)) -> Repository:
     if get_settings().codequest_storage == "local":
         from .local_repository import LocalRepository
 
         return LocalRepository()
-    return Repository(get_client())
+    settings = get_settings()
+    # A fresh request-scoped client prevents sessions leaking between users.
+    client = create_client(settings.supabase_url, settings.supabase_publishable_key)
+    if identity:
+        client.postgrest.auth(identity.token)
+    return Repository(client)
