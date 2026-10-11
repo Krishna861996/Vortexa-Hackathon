@@ -32,6 +32,7 @@ class ChallengeDetail(ChallengeSummary):
 
 class HintRequest(BaseModel):
     learner_id: str = "demo-learner"
+    hint_index: int | None = Field(default=None, ge=0)
 
 
 class HintResponse(BaseModel):
@@ -39,6 +40,16 @@ class HintResponse(BaseModel):
     hint_number: int
     total_hints: int
     exhausted: bool
+
+class MentorRequest(BaseModel):
+    mode: Literal["guidance", "solution"] = "guidance"
+    learner_id: str = "demo-learner"
+    code: str = Field(default="", max_length=6000)
+    question: str = Field(min_length=1, max_length=1000)
+
+class MentorResponse(BaseModel):
+    answer: str
+    source: Literal["gemini", "local"]
 
 
 class Submission(BaseModel):

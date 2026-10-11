@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     codequest_runner: str = "piston"
     piston_url: str = "https://emkc.org/api/v2/piston"
     piston_token: str = ""
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-flash-latest"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -10,8 +10,9 @@ from .progress import build_concept_progress
 from .runner import RunnerUnavailable, get_runner
 from .models import (
     AttemptResponse, ChallengeDetail, ChallengeProgress, ChallengeSummary,
-    HintRequest, HintResponse, LearnerProgress, Submission,
+    HintRequest, HintResponse, LearnerProgress, Submission, MentorRequest, MentorResponse,
 )
+from .mentor import ask_mentor
 from .repository import Repository, get_repository
 
 
@@ -69,16 +70,30 @@ def next_hint(
     challenge = require_challenge(repository, challenge_id)
     learner = require_learner(repository, request.learner_id)
     positions = learner["hint_positions"] or {}
-    next_index = positions.get(challenge_id, 0)
+    # A new page visit starts at hint 1; persisted evidence still gates the mentor.
+    next_index = request.hint_index if request.hint_index is not None else positions.get(challenge_id, 0)
     hints = challenge["hints"]
     if next_index >= len(hints):
         return HintResponse(hint=None, hint_number=len(hints), total_hints=len(hints), exhausted=True)
-    positions[challenge_id] = next_index + 1
+    positions[challenge_id] = max(positions.get(challenge_id, 0), next_index + 1)
     repository.update_hint_positions(request.learner_id, positions)
     return HintResponse(
         hint=hints[next_index], hint_number=next_index + 1,
         total_hints=len(hints), exhausted=next_index + 1 >= len(hints),
     )
+
+@app.post("/api/challenges/{challenge_id}/mentor", response_model=MentorResponse)
+def mentor(
+    challenge_id: str,
+    request: MentorRequest,
+    repository: Repository = Depends(get_repository),
+):
+    challenge = require_challenge(repository, challenge_id)
+    learner = require_learner(repository, request.learner_id)
+    positions = learner["hint_positions"] or {}
+    if positions.get(challenge_id, 0) < len(challenge["hints"]):
+        raise HTTPException(status_code=403, detail="Reveal all hints before asking the mentor for help.")
+    return ask_mentor(challenge, request.question, request.code, request.mode)
 
 
 @app.post("/api/challenges/{challenge_id}/attempts", response_model=AttemptResponse)
