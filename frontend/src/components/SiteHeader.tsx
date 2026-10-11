@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { QuestIcon } from "./QuestIcon";
@@ -22,8 +23,15 @@ export function SiteHeader() {
     <header className="site-header">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-5 py-4 sm:gap-4 sm:px-8 lg:px-10">
         <Link href="/" className="flex min-w-0 items-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime-300 sm:gap-3" aria-label="CodeQuest AI home">
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" fill="none" className="h-6 w-6" role="presentation"><path d="m12 9-7 7 7 7M20 9l7 7-7 7M18 6l-4 20" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span className="brand-mark overflow-hidden" aria-hidden="true">
+            <Image
+              src="/logo-icon.png"
+              alt="CodeQuest Logo"
+              width={32}
+              height={32}
+              className="h-7 w-7 object-contain"
+              priority
+            />
           </span>
           <span className="whitespace-nowrap text-sm font-bold tracking-[-0.04em] text-white sm:text-xl">CodeQuest <span className="text-lime-300">AI</span></span>
         </Link>

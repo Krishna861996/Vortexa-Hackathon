@@ -5,6 +5,7 @@ export type TestCategory = "passed" | "wrong output" | "runtime error" | "timeou
 export interface ChallengeSummary {
   locked: boolean;
   unlock_message: string | null;
+  recommended_reason?: string | null;
   id: string;
   title: string;
   difficulty: Difficulty;
@@ -69,14 +70,25 @@ export interface ConceptProgress {
   completed_challenges: number;
   available_challenges: number;
   recent_results: ProgressOutcome[];
+  demonstrated_skills?: string[];
+}
+
+export interface RecurringMistake {
+  mistake_type: string;
+  label: string;
+  description: string;
+  occurrences: number;
+  affected_challenges: string[];
+  focus_advice: string;
 }
 
 export interface PracticeRecommendation {
   concept: string;
-  repeated_category: Exclude<TestCategory, "passed">;
+  repeated_category: string;
   challenge_id: string;
   challenge_title: string;
   reason: string;
+  adapted_for?: string;
 }
 
 export interface LearnerProgress {
@@ -87,6 +99,7 @@ export interface LearnerProgress {
   challenges: ChallengeProgress[];
   concepts: ConceptProgress[];
   recommendations: PracticeRecommendation[];
+  recurring_mistakes?: RecurringMistake[];
 }
 
 export const DIFFICULTY_ORDER: Difficulty[] = ["beginner", "easy", "medium", "hard", "advanced"];
@@ -132,7 +145,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ hint_index: hintIndex }),
     }),
-  mentor: (id: string, code: string, question: string, mode: "guidance" | "solution" = "guidance") =>
+  mentor: (id: string, code: string, question: string, mode: "guidance" | "deep_hint" | "solution" = "guidance") =>
     request<MentorResponse>(`/api/challenges/${encodeURIComponent(id)}/mentor`, { method: "POST", body: JSON.stringify({ code, question, mode }) }),
   submit: (id: string, code: string) =>
     request<AttemptResponse>(`/api/challenges/${encodeURIComponent(id)}/attempts`, {

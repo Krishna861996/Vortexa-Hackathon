@@ -34,6 +34,13 @@ def solution_fingerprint(attempt: dict[str, Any]) -> str:
     return sha256(f"{attempt['challenge_id']}\n{normalized}".encode()).hexdigest()
 
 
+from .mistakes import (
+    get_demonstrated_skills_for_concept,
+    detect_recurring_mistakes,
+    adapt_recommendations_for_mistakes,
+)
+
+
 def build_concept_progress(
     attempts: list[dict[str, Any]], challenges: list[dict[str, Any]],
 ) -> tuple[list[ConceptProgress], list[PracticeRecommendation]]:
@@ -60,11 +67,14 @@ def build_concept_progress(
         else:
             status = "practicing"
 
+        demonstrated_skills = get_demonstrated_skills_for_concept(concept, solved_ids)
+
         evidence.append(ConceptProgress(
             concept=concept, status=status, attempts=len(relevant),
             passed_attempts=len(passes), distinct_passing_solutions=distinct_passes,
             completed_challenges=len({attempt["challenge_id"] for attempt in passes}),
             available_challenges=len(available), recent_results=recent,
+            demonstrated_skills=demonstrated_skills,
         ))
 
         if (
@@ -97,4 +107,13 @@ def build_concept_progress(
             ),
         ))
 
-    return evidence, recommendations
+    # Detect recurring mistakes across all attempts and adapt future challenges to them
+    challenges_by_id = {c["id"]: c for c in challenges}
+    recurring = detect_recurring_mistakes(attempts, challenges_by_id)
+    adapted = adapt_recommendations_for_mistakes(recurring, challenges, solved_ids)
+
+    # Combine concept recommendations with adapted mistake recommendations
+    seen_challenges = {item.challenge_id for item in recommendations}
+    combined_recommendations = recommendations + [a for a in adapted if a.challenge_id not in seen_challenges]
+
+    return evidence, combined_recommendations

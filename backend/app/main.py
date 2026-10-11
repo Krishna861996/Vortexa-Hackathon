@@ -54,10 +54,28 @@ def require_unlocked(repository: Repository, challenge: dict, learner_id: str) -
 def list_challenges(repository: Repository = Depends(get_repository), identity: Identity | None = Depends(optional_identity)):
     challenges = repository.list_challenges()
     attempts = repository.list_attempts(identity.id) if identity else []
+
+    mistake_map: dict[str, str] = {}
+    if attempts:
+        from .mistakes import detect_recurring_mistakes, CHALLENGES_FOR_MISTAKE
+        challenges_by_id = {c["id"]: c for c in challenges}
+        recurring = detect_recurring_mistakes(attempts, challenges_by_id)
+        solved_ids = {a["challenge_id"] for a in attempts if a["passed"]}
+        for m in recurring:
+            for ch_id in CHALLENGES_FOR_MISTAKE.get(m.mistake_type, []):
+                if ch_id not in solved_ids and ch_id not in mistake_map:
+                    mistake_map[ch_id] = f"Recommended to practice: {m.label}"
+
     summaries = []
     for challenge in challenges:
         reason = lock_reason(challenge, challenges, attempts)
-        summaries.append({**challenge, "locked": bool(reason), "unlock_message": reason})
+        rec_reason = mistake_map.get(challenge["id"])
+        summaries.append({
+            **challenge,
+            "locked": bool(reason),
+            "unlock_message": reason,
+            "recommended_reason": rec_reason,
+        })
     return summaries
 
 
@@ -208,7 +226,12 @@ def get_progress(learner_id: str, repository: Repository = Depends(get_repositor
         )
         for challenge_id, rows in grouped.items()
     ]
-    concept_evidence, recommendations = build_concept_progress(attempts, repository.list_challenges())
+    all_challenges = repository.list_challenges()
+    concept_evidence, recommendations = build_concept_progress(attempts, all_challenges)
+    from .mistakes import detect_recurring_mistakes
+    challenges_by_id = {c["id"]: c for c in all_challenges}
+    recurring_mistakes = detect_recurring_mistakes(attempts, challenges_by_id)
+
     return LearnerProgress(
         learner_id=learner_id,
         total_attempts=len(attempts),
@@ -217,6 +240,7 @@ def get_progress(learner_id: str, repository: Repository = Depends(get_repositor
         challenges=challenges,
         concepts=concept_evidence,
         recommendations=recommendations,
+        recurring_mistakes=recurring_mistakes,
     )
 
 

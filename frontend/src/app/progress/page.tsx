@@ -65,15 +65,37 @@ function ProgressContent() {
           <section className="panel p-6 sm:p-8" aria-labelledby="completed-heading"><span className="eyebrow">Milestones</span><div className="mt-4 flex items-center justify-between gap-4"><h2 id="completed-heading" className="text-2xl font-semibold tracking-tight text-white">Completed challenges</h2><span className="text-xs text-slate-500">{completed.length} complete</span></div>
             {completed.length ? <div className="mt-6 space-y-3">{completed.map((challenge) => <Link key={challenge.id} href={`/challenges/${challenge.id}`} className="group flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-[#0c121b] p-4 transition-colors hover:border-lime-300/30"><div className="flex min-w-0 items-center gap-4"><span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-lime-300/12 text-lime-300" aria-hidden="true"><QuestIcon name={challengeIcons[challenge.id] ?? "medal"} /></span><div className="min-w-0"><p className="truncate font-semibold text-white group-hover:text-lime-200">{challenge.title}</p><p className="mt-1 text-xs capitalize text-slate-400">{challenge.difficulty} · {challenge.concept_tags.map(formatConcept).join(", ")}</p></div></div><span className="flex-none text-lime-300" aria-hidden="true">→</span></Link>)}</div> : <div className="mt-6 rounded-xl border border-dashed border-white/15 bg-white/[0.025] p-8 text-center"><p className="font-semibold text-white">Your first win is waiting</p><p className="mt-2 text-sm leading-6 text-slate-400">Complete a challenge to see it appear here.</p><Link href="/" className="primary-button mt-5">Choose a challenge</Link></div>}
           </section>
-          <section className="panel p-6 sm:p-8" aria-labelledby="recommendations-heading"><span className="eyebrow">Next practice</span><h2 id="recommendations-heading" className="mt-4 text-2xl font-semibold tracking-tight text-white">Recommended challenges</h2><p className="mt-2 text-sm leading-6 text-slate-400">Suggestions appear when two different code versions fail with the same result category for a concept.</p>
-            {progress.recommendations.length ? <div className="mt-6 space-y-3">{progress.recommendations.map((item) => <div key={item.concept} className="rounded-xl border border-lime-300/15 bg-lime-300/[0.045] p-4"><p className="text-xs font-bold uppercase tracking-[.12em] text-lime-300">{formatConcept(item.concept)} · {item.repeated_category}</p><p className="mt-2 text-sm leading-6 text-slate-200">{item.reason}</p><Link href={`/challenges/${item.challenge_id}`} className="mt-3 inline-flex text-sm font-bold text-lime-300 hover:text-lime-200">Practice {item.challenge_title} <span className="ml-2" aria-hidden="true">→</span></Link></div>)}</div> : <div className="mt-6 rounded-xl border border-dashed border-white/15 bg-white/[0.025] p-5 text-sm leading-6 text-slate-400">No repeated mistake pattern yet. A focused suggestion appears when your two latest attempts for a concept fail in the same way with different code.</div>}
+          <section className="panel p-6 sm:p-8" aria-labelledby="recommendations-heading"><span className="eyebrow">Next practice</span><h2 id="recommendations-heading" className="mt-4 text-2xl font-semibold tracking-tight text-white">Recommended challenges</h2><p className="mt-2 text-sm leading-6 text-slate-400">Suggestions adapt to repeated errors and recurring patterns across your attempts.</p>
+            {progress.recommendations.length ? <div className="mt-6 space-y-3">{progress.recommendations.map((item) => <div key={item.concept + item.challenge_id} className="rounded-xl border border-lime-300/15 bg-lime-300/[0.045] p-4"><div className="flex items-center justify-between gap-2"><p className="text-xs font-bold uppercase tracking-[.12em] text-lime-300">{formatConcept(item.concept)} · {item.repeated_category}</p>{item.adapted_for ? <span className="rounded-md bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">Adapted for you</span> : null}</div><p className="mt-2 text-sm leading-6 text-slate-200">{item.reason}</p><Link href={`/challenges/${item.challenge_id}`} className="mt-3 inline-flex text-sm font-bold text-lime-300 hover:text-lime-200">Practice {item.challenge_title} <span className="ml-2" aria-hidden="true">→</span></Link></div>)}</div> : <div className="mt-6 rounded-xl border border-dashed border-white/15 bg-white/[0.025] p-5 text-sm leading-6 text-slate-400">No repeated mistake pattern yet. Focused suggestions appear when your attempts encounter recurring challenges.</div>}
           </section>
         </div>
+
+        {progress.recurring_mistakes && progress.recurring_mistakes.length > 0 ? (
+          <section className="mt-8 panel p-6 sm:p-8 border-amber-500/20 bg-amber-500/[0.03]">
+            <span className="eyebrow text-amber-300">Adaptive Feedback</span>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white">Detected recurring patterns</h2>
+            <p className="mt-2 text-sm text-slate-300">We analyze your submissions to detect repeated stumbling blocks (like off-by-one bounds or empty input handling) and adapt upcoming recommendations to help you overcome them.</p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {progress.recurring_mistakes.map((m) => (
+                <div key={m.mistake_type} className="rounded-xl border border-amber-400/20 bg-[#0c121b] p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-semibold text-amber-200">{m.label}</h3>
+                    <span className="rounded-full bg-amber-400/15 px-2.5 py-0.5 text-xs font-mono font-medium text-amber-300">{m.occurrences} attempts</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-300">{m.description}</p>
+                  <div className="mt-3 rounded-lg border border-amber-400/15 bg-amber-400/[0.08] p-3 text-xs leading-5 text-amber-100">
+                    <strong className="text-amber-300">How to master: </strong>{m.focus_advice}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="mt-8" aria-labelledby="concept-heading">
           <span className="eyebrow">Your toolkit</span>
           <h2 id="concept-heading" className="mt-4 text-2xl font-semibold tracking-tight text-white">Concept progress</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Each submission counts once per tagged concept. Browser practice counts a full pass when all visible tests pass; it does not check hidden tests. Different passing solutions count once each, even if you submit the same code again.</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Track your demonstrated skills by concept. Full passes and distinct solutions unlock verified demonstrated skills.</p>
           <div className="mt-5 rounded-2xl border border-white/10 bg-[#10151d] p-5 text-xs leading-6 text-slate-300 sm:text-sm">
             <p><strong className="text-white">Not started:</strong> no attempts. <strong className="text-white">Practicing:</strong> attempts without a sustained pass pattern.</p>
             <p><strong className="text-white">Improving:</strong> at least two attempts and a full pass on the latest attempt. <strong className="text-white">Demonstrated:</strong> at least three attempts, two different passing solutions, and two full passes among the latest three attempts.</p>
@@ -82,6 +104,18 @@ function ProgressContent() {
             <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="flex items-center gap-2 text-lg font-semibold text-white"><QuestIcon name={conceptIcons[item.concept] ?? "layers"} className="h-5 w-5 text-lime-300" />{formatConcept(item.concept)}</h3><span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${statusStyle[item.status]}`}><QuestIcon name={statusIcons[item.status]} className="h-3.5 w-3.5" />{item.status}</span></div>
             <p className="mt-4 text-sm text-slate-300"><strong className="text-white">{item.passed_attempts}</strong> full passes in <strong className="text-white">{item.attempts}</strong> attempts</p>
             <p className="mt-1 text-xs leading-5 text-slate-400">{item.distinct_passing_solutions} different passing solutions · {item.completed_challenges} of {item.available_challenges} challenges complete</p>
+            {item.demonstrated_skills && item.demonstrated_skills.length > 0 ? (
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <p className="text-xs font-bold uppercase tracking-[.12em] text-slate-500">Demonstrated skills</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {item.demonstrated_skills.map((skill, sIdx) => (
+                    <span key={sIdx} className="rounded-md border border-lime-300/20 bg-lime-300/10 px-2 py-0.5 text-xs text-lime-200">
+                      ✓ {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div className="mt-4 border-t border-white/10 pt-4"><p className="text-xs font-bold uppercase tracking-[.12em] text-slate-500">Latest attempts · newest first</p><div className="mt-2 flex flex-wrap gap-2">{item.recent_results.length ? item.recent_results.map((result, index) => <span key={index} className={`rounded-md px-2 py-1 text-xs font-semibold capitalize ${result === "passed" ? "bg-emerald-300/10 text-emerald-200" : "bg-white/[0.055] text-slate-300"}`}>{result}</span>) : <span className="text-xs text-slate-500">No attempts yet</span>}</div></div>
           </article>)}</div> : <p className="mt-6 text-sm text-slate-400">Concepts will appear when challenges are available.</p>}
         </section>

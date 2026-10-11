@@ -22,6 +22,7 @@ class ChallengeSummary(BaseModel):
     concept_tags: list[str]
     locked: bool = False
     unlock_message: str | None = None
+    recommended_reason: str | None = None
 
 
 class ChallengeDetail(ChallengeSummary):
@@ -42,10 +43,12 @@ class HintResponse(BaseModel):
     total_hints: int
     exhausted: bool
 
+
 class MentorRequest(BaseModel):
-    mode: Literal["guidance", "solution"] = "guidance"
+    mode: Literal["guidance", "deep_hint", "solution"] = "guidance"
     code: str = Field(default="", max_length=6000)
     question: str = Field(min_length=1, max_length=1000)
+
 
 class MentorResponse(BaseModel):
     answer: str
@@ -85,6 +88,15 @@ class ChallengeProgress(BaseModel):
     last_submitted_at: datetime
 
 
+class RecurringMistake(BaseModel):
+    mistake_type: str
+    label: str
+    description: str
+    occurrences: int
+    affected_challenges: list[str]
+    focus_advice: str
+
+
 class ConceptProgress(BaseModel):
     concept: str
     status: ConceptStatus
@@ -94,14 +106,16 @@ class ConceptProgress(BaseModel):
     completed_challenges: int
     available_challenges: int
     recent_results: list[ProgressOutcome]
+    demonstrated_skills: list[str] = []
 
 
 class PracticeRecommendation(BaseModel):
     concept: str
-    repeated_category: Literal["wrong output", "runtime error", "timeout"]
+    repeated_category: str
     challenge_id: str
     challenge_title: str
     reason: str
+    adapted_for: str | None = None
 
 
 class LearnerProgress(BaseModel):
@@ -112,4 +126,5 @@ class LearnerProgress(BaseModel):
     challenges: list[ChallengeProgress]
     concepts: list[ConceptProgress]
     recommendations: list[PracticeRecommendation]
+    recurring_mistakes: list[RecurringMistake] = []
 

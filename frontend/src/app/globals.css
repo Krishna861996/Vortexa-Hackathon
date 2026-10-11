@@ -65,7 +65,7 @@ button:disabled { cursor: not-allowed; }
 .status-dot { height: 6px; width: 6px; border-radius: 50%; background: #ffd343; }
 .hero-copy h1 { font-size: clamp(42px,5.3vw,72px); letter-spacing: -.06em; font-weight: 650; line-height: 1.09; margin: 24px 0; }
 .hero-blue { color: #79b6ff; }
-.hero-copy > p { max-width: 470px; font-size: 15px; color: #9daec1; line-height: 1.9; }
+.hero-copy > p { max-width: 520px; font-size: 15px; color: #9daec1; line-height: 1.8; }
 .hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 22px; margin-top: 30px; }
 .hero-note { font-size: 11px; color: #95a5b8; }
 .hero-emblem { text-align: center; }

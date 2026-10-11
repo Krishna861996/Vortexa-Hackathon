@@ -44,7 +44,7 @@ export default function HomePage() {
     <section className="quest-hero" data-reveal>
       <div className="hero-copy"><div className="hero-kicker"><span className="status-dot" /> A little practice goes a long way</div>
         <h1>Small challenges.<br /><span className="hero-blue">Big possibilities.</span></h1>
-        <p>Make Python click. Write a little code, learn from each attempt, and build confidence at your own pace.</p>
+        <p>An intelligent Python learning mentor built for beginners, students, and self-taught coders. CodeQuest AI breaks programming into bite-sized challenges, tests your solutions in real time, and provides progressive hints so you never get stuck.</p>
         <div className="hero-actions"><a href="#challenges" className="primary-button">{next ? "Continue your quest" : "Explore challenges"}<QuestIcon name="arrow" /></a><span className="hero-note">One function. One step forward.</span></div>
       </div>
       <div className="hero-emblem"><div className="emblem-orbit"><PythonMark className="h-24 w-24 sm:h-28 sm:w-28" /></div><span className="emblem-label">PYTHON / YOUR PACE</span></div>
@@ -64,7 +64,7 @@ export default function HomePage() {
               <span className="trail-node" aria-hidden="true">{complete ? <QuestIcon name="check" className="h-4 w-4" /> : <span />}</span>
               <Link href={item.locked ? "#challenges" : "/challenges/" + item.id} aria-disabled={item.locked} onClick={(event) => { if (item.locked) event.preventDefault(); }} className={"quest-card panel " + (item.locked ? "quest-card-locked" : current ? "quest-card-current" : "")}>
                 <div className="quest-card-top"><span className="question-icon"><QuestIcon name={challengeIcons[item.id] ?? "terminal"} className="h-6 w-6" /></span><span className={"difficulty-badge difficulty-" + item.difficulty}><QuestIcon name={difficultyIcons[item.difficulty]} className="h-3.5 w-3.5" />{item.difficulty}</span></div>
-                <div className="quest-card-body"><div><span className="quest-number">QUEST {String(ordered.findIndex((challenge) => challenge.id === item.id) + 1).padStart(2, "0")}{complete ? " / COMPLETE" : current ? " / UP NEXT" : ""}</span><h3>{item.title}</h3><div className="quest-concepts">{item.concept_tags.map((tag) => <span key={tag}>{formatConcept(tag)}</span>)}</div></div><span className="card-arrow"><QuestIcon name={item.locked ? "lock" : "arrow"} /></span></div>
+                <div className="quest-card-body"><div><span className="quest-number">QUEST {String(ordered.findIndex((challenge) => challenge.id === item.id) + 1).padStart(2, "0")}{complete ? " / COMPLETE" : current ? " / UP NEXT" : ""}</span><h3>{item.title}</h3><div className="quest-concepts">{item.concept_tags.map((tag) => <span key={tag}>{formatConcept(tag)}</span>)}</div>{item.recommended_reason ? <p className="mt-2 text-xs font-medium text-amber-300">★ {item.recommended_reason}</p> : null}</div><span className="card-arrow"><QuestIcon name={item.locked ? "lock" : "arrow"} /></span></div>
                 {item.locked ? <p className="lock-explanation">{item.unlock_message}</p> : null}
               </Link>
             </div>;

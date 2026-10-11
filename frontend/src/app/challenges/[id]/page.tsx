@@ -85,12 +85,21 @@ function ChallengeContent() {
     }
   }
 
-  async function askMentor(mode: "guidance" | "solution" = "guidance") {
-    if (!challenge || (mode === "guidance" && !mentorQuestion.trim()) || mentorLoading) return;
+  async function askMentor(mode: "guidance" | "deep_hint" = "guidance") {
+    if (!challenge || mentorLoading) return;
+    const promptText = mode === "deep_hint"
+      ? "Please provide a more specific progressive hint for the trickiest part of this challenge."
+      : mentorQuestion;
+    if (mode === "guidance" && !mentorQuestion.trim()) return;
     setMentorLoading(true); setMentorError("");
-    try { setMentorAnswer(await api.mentor(challenge.id, code, mode === "solution" ? "Please show the full solution and explain it." : mentorQuestion, mode)); setMentorQuestion(""); }
-    catch (reason) { setMentorError(reason instanceof Error ? reason.message : "Could not reach the mentor."); }
-    finally { setMentorLoading(false); }
+    try {
+      setMentorAnswer(await api.mentor(challenge.id, code, promptText, mode));
+      if (mode === "guidance") setMentorQuestion("");
+    } catch (reason) {
+      setMentorError(reason instanceof Error ? reason.message : "Could not reach the mentor.");
+    } finally {
+      setMentorLoading(false);
+    }
   }
 
   async function requestHint() {
@@ -145,7 +154,7 @@ function ChallengeContent() {
               <p className="mt-5 text-xs leading-5 text-slate-500">Browser practice checks these visible examples. Hidden tests stay on the server.</p>
             </section>
             {challenge.hint_count > 0 ? <section className="panel p-6 sm:p-7" aria-labelledby="hints-heading"><div className="flex items-center justify-between gap-4"><div><span className="eyebrow">Need a nudge?</span><h2 id="hints-heading" className="mt-4 text-xl font-semibold text-white">Hints</h2></div><span className="text-xs text-slate-500">{challenge.hint_count} available</span></div><p className="mt-3 text-sm leading-6 text-slate-400">Reveal one hint at a time when you get stuck.</p><div className="mt-4 space-y-3" aria-live="polite">{hints.map((hint) => <p key={hint.number} className="rounded-xl border border-lime-300/15 bg-lime-300/[0.055] p-4 text-sm leading-6 text-lime-100"><span className="mr-2 font-bold text-lime-300">Hint {hint.number} of {challenge.hint_count}.</span>{hint.text}</p>)}</div>{hintError ? <p role="alert" className="mt-3 text-sm text-rose-300">{hintError}</p> : null}<div className="mt-5 flex flex-wrap gap-3"><button type="button" className="secondary-button" onClick={requestHint} disabled={hintLoading || hintsExhausted}>{hintLoading ? "Loading hint…" : hintsExhausted ? "No more hints" : "Show next hint"}</button>{hints.length > 0 ? <button type="button" className="primary-button" onClick={retryInEditor}>Try in my code <span aria-hidden="true">→</span></button> : null}</div></section> : null}
-            {hintsExhausted ? <section className="panel p-6 sm:p-7" aria-labelledby="mentor-heading"><span className="eyebrow">Still stuck?</span><h2 id="mentor-heading" className="mt-4 text-xl font-semibold text-white">Ask the coding mentor</h2><p className="mt-3 text-sm leading-6 text-slate-400">All hints are unlocked. Ask for a nudge about your current approach; ask for guidance or choose a full solution with an explanation.</p>{mentorAnswer ? <div className="mt-4 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.05] p-4 text-sm leading-6 text-cyan-50"><p className="mb-2 text-xs font-bold uppercase tracking-[.12em] text-cyan-300">{mentorAnswer.source === "gemini" ? "Gemini mentor" : "Local mentor"}</p><div className="whitespace-pre-wrap font-mono">{mentorAnswer.answer}</div></div> : null}<label htmlFor="mentor-question" className="mt-4 block text-xs text-slate-400">Your question</label><textarea id="mentor-question" maxLength={1000} value={mentorQuestion} onChange={(event) => setMentorQuestion(event.target.value)} className="mt-4 min-h-24 w-full rounded-xl border border-white/10 bg-[#0c121b] p-3 text-sm text-slate-100 outline-none focus:border-cyan-300/60" placeholder="What part is confusing?" /><button type="button" className="secondary-button mt-3" onClick={() => askMentor()} disabled={mentorLoading || !mentorQuestion.trim()}>{mentorLoading ? "Thinking…" : "Ask mentor"}</button><button type="button" className="secondary-button mt-3 ml-3" onClick={() => askMentor("solution")} disabled={mentorLoading}>Show full solution</button>{mentorError ? <p role="alert" className="mt-3 text-sm text-rose-300">{mentorError}</p> : null}</section> : null}
+            {hintsExhausted ? <section className="panel p-6 sm:p-7" aria-labelledby="mentor-heading"><span className="eyebrow">Still stuck?</span><h2 id="mentor-heading" className="mt-4 text-xl font-semibold text-white">Ask the coding mentor</h2><p className="mt-3 text-sm leading-6 text-slate-400">All challenge hints are unlocked. Get progressive hints that guide your logic step-by-step without revealing the full solution.</p>{mentorAnswer ? <div className="mt-4 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.05] p-4 text-sm leading-6 text-cyan-50"><p className="mb-2 text-xs font-bold uppercase tracking-[.12em] text-cyan-300">{mentorAnswer.source === "gemini" ? "Gemini mentor" : "Local mentor"}</p><div className="whitespace-pre-wrap font-mono">{mentorAnswer.answer}</div></div> : null}<label htmlFor="mentor-question" className="mt-4 block text-xs text-slate-400">Your question</label><textarea id="mentor-question" maxLength={1000} value={mentorQuestion} onChange={(event) => setMentorQuestion(event.target.value)} className="mt-4 min-h-24 w-full rounded-xl border border-white/10 bg-[#0c121b] p-3 text-sm text-slate-100 outline-none focus:border-cyan-300/60" placeholder="What part is confusing?" /><div className="mt-3 flex flex-wrap gap-3"><button type="button" className="secondary-button" onClick={() => askMentor()} disabled={mentorLoading || !mentorQuestion.trim()}>{mentorLoading ? "Thinking…" : "Ask mentor"}</button><button type="button" className="secondary-button" onClick={() => askMentor("deep_hint")} disabled={mentorLoading}>Get deeper hint</button></div>{mentorError ? <p role="alert" className="mt-3 text-sm text-rose-300">{mentorError}</p> : null}</section> : null}
           </div>
           <div className="space-y-6 lg:sticky lg:top-6">
             <section className="panel overflow-hidden" aria-labelledby="editor-heading">
