@@ -38,17 +38,6 @@
   - **Improving**: Full pass achieved on recent attempts.
   - **Demonstrated**: Consistent success across multiple distinct solutions.
 
----
-
-## 🖼️ Previews
-
-| Challenge Library | Practice & Hints |
-| :---: | :---: |
-| ![Frontend Preview](frontend-preview.png) | ![Hints Preview](hints-preview.png) |
-
-| Progress & Skill Tracking | Level Celebrations |
-| :---: | :---: |
-| ![Progress Preview](progress-preview.png) | ![Celebration Preview](celebration-preview.png) |
 
 ---
 
