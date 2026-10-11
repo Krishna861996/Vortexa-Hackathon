@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Any
 
 from pydantic import BaseModel, Field
 
@@ -15,6 +15,26 @@ class TestCase(BaseModel):
     expected: int | str | bool
 
 
+class AchievementBadge(BaseModel):
+    id: str
+    name: str
+    description: str
+    icon: str
+    unlocked: bool = False
+    unlocked_at: str | None = None
+
+
+class MissionMapNode(BaseModel):
+    mission_number: int
+    challenge_id: str
+    title: str
+    difficulty: Difficulty
+    status: Literal["locked", "available", "current", "completed"]
+    stars: int = 0
+    xp_earned: int = 0
+    is_daily: bool = False
+
+
 class ChallengeSummary(BaseModel):
     id: str
     title: str
@@ -23,6 +43,11 @@ class ChallengeSummary(BaseModel):
     locked: bool = False
     unlock_message: str | None = None
     recommended_reason: str | None = None
+    mission_number: int = 1
+    mission_title: str | None = None
+    is_daily: bool = False
+    stars: int = 0
+    xp_value: int = 100
 
 
 class ChallengeDetail(ChallengeSummary):
@@ -31,6 +56,8 @@ class ChallengeDetail(ChallengeSummary):
     starter_code: str
     visible_tests: list[TestCase]
     hint_count: int
+    hints_used: int = 0
+    mission_steps: list[str] = []
 
 
 class HintRequest(BaseModel):
@@ -79,6 +106,14 @@ class AttemptResponse(BaseModel):
     submitted_at: datetime
     failure_explanation: str | None = None
     feedback_source: Literal["local"] | None = None
+    earned_xp: int = 0
+    solo_bonus: bool = False
+    hints_used: int = 0
+    stars: int = 0
+    total_xp: int = 0
+    current_level: int = 1
+    level_name: str = "Novice Coder"
+    new_badges: list[str] = []
 
 
 class ChallengeProgress(BaseModel):
@@ -127,4 +162,37 @@ class LearnerProgress(BaseModel):
     concepts: list[ConceptProgress]
     recommendations: list[PracticeRecommendation]
     recurring_mistakes: list[RecurringMistake] = []
+    total_xp: int = 0
+    current_level: int = 1
+    level_name: str = "Novice Coder"
+    next_level_xp: int = 150
+    level_progress_pct: int = 0
+    daily_challenge_id: str | None = None
+    daily_challenge_title: str | None = None
+    daily_challenge_completed: bool = False
+    daily_streak: int = 0
+    badges: list[AchievementBadge] = []
+    progress_map: list[MissionMapNode] = []
+
+
+class DiffAnalysisRequest(BaseModel):
+    before_code: str = Field(max_length=10000)
+    after_code: str = Field(max_length=10000)
+
+
+class DiffAnalysisResponse(BaseModel):
+    diff_hunks: list[dict[str, Any]]
+    before_highlights: list[int]
+    after_highlights: list[int]
+    explanations: list[str]
+    why_it_helps: list[str]
+
+
+class StoredAttempt(BaseModel):
+    id: int | None = None
+    challenge_id: str
+    submitted_code: str
+    test_results: list[TestResult]
+    passed: bool
+    submitted_at: datetime
 

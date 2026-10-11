@@ -11,8 +11,9 @@ from .runner import RunnerUnavailable, get_runner
 from .models import (
     AttemptResponse, ChallengeDetail, ChallengeProgress, ChallengeSummary,
     HintRequest, HintResponse, LearnerProgress, Submission, MentorRequest, MentorResponse,
-    BrowserSubmission, TestResult,
+    BrowserSubmission, TestResult, DiffAnalysisRequest, DiffAnalysisResponse, StoredAttempt,
 )
+from .diff_analyzer import analyze_code_diff
 from .mentor import ask_mentor
 from .unlocks import lock_reason
 from .repository import Repository, get_repository
@@ -55,6 +56,22 @@ def list_challenges(repository: Repository = Depends(get_repository), identity: 
     challenges = repository.list_challenges()
     attempts = repository.list_attempts(identity.id) if identity else []
 
+    from .gamification import get_daily_challenge, get_mission_number_and_title, DIFFICULTY_BASE_XP
+    daily = get_daily_challenge(challenges)
+    daily_id = daily["id"] if daily else None
+
+    # Calculate stars for solved challenges
+    solved_stars: dict[str, int] = {}
+    if identity:
+        learner = repository.get_learner(identity.id)
+        hint_positions = (learner.get("hint_positions") or {}) if learner else {}
+        for a in attempts:
+            if a.get("passed"):
+                ch_id = a.get("challenge_id", "")
+                h_used = hint_positions.get(ch_id, 0)
+                stars = 3 if h_used == 0 else (2 if h_used <= 2 else 1)
+                solved_stars[ch_id] = max(solved_stars.get(ch_id, 0), stars)
+
     mistake_map: dict[str, str] = {}
     if attempts:
         from .mistakes import detect_recurring_mistakes, CHALLENGES_FOR_MISTAKE
@@ -67,14 +84,24 @@ def list_challenges(repository: Repository = Depends(get_repository), identity: 
                     mistake_map[ch_id] = f"Recommended to practice: {m.label}"
 
     summaries = []
-    for challenge in challenges:
+    for idx, challenge in enumerate(challenges):
         reason = lock_reason(challenge, challenges, attempts)
         rec_reason = mistake_map.get(challenge["id"])
+        mission_num, mission_title = get_mission_number_and_title(challenge["id"], idx, challenge["title"])
+        is_daily = (challenge["id"] == daily_id)
+        xp_val = DIFFICULTY_BASE_XP.get(challenge.get("difficulty", "beginner"), 100)
+        stars = solved_stars.get(challenge["id"], 0)
+
         summaries.append({
             **challenge,
             "locked": bool(reason),
             "unlock_message": reason,
             "recommended_reason": rec_reason,
+            "mission_number": mission_num,
+            "mission_title": mission_title,
+            "is_daily": is_daily,
+            "stars": stars,
+            "xp_value": xp_val,
         })
     return summaries
 
@@ -97,7 +124,26 @@ def clean_starter_code(code: str) -> str:
 @app.get("/api/challenges/{challenge_id}", response_model=ChallengeDetail)
 def get_challenge(challenge_id: str, repository: Repository = Depends(get_repository), identity: Identity | None = Depends(optional_identity)):
     challenge = require_challenge(repository, challenge_id)
-    reason = lock_reason(challenge, repository.list_challenges(), repository.list_attempts(identity.id) if identity else [])
+    all_challenges = repository.list_challenges()
+    reason = lock_reason(challenge, all_challenges, repository.list_attempts(identity.id) if identity else [])
+
+    from .gamification import get_daily_challenge, get_mission_number_and_title, DEFAULT_MISSION_STEPS, DIFFICULTY_BASE_XP
+    daily = get_daily_challenge(all_challenges)
+    is_daily = (challenge_id == daily["id"]) if daily else False
+
+    idx = next((i for i, c in enumerate(all_challenges) if c["id"] == challenge_id), 0)
+    mission_num, mission_title = get_mission_number_and_title(challenge_id, idx, challenge["title"])
+
+    hints_used = 0
+    stars = 0
+    if identity:
+        learner = repository.get_learner(identity.id)
+        if learner:
+            hints_used = (learner.get("hint_positions") or {}).get(challenge_id, 0)
+        attempts = repository.list_attempts(identity.id)
+        if any(a.get("challenge_id") == challenge_id and a.get("passed") for a in attempts):
+            stars = 3 if hints_used == 0 else (2 if hints_used <= 2 else 1)
+
     return ChallengeDetail(
         id=challenge["id"],
         title=challenge["title"],
@@ -109,6 +155,13 @@ def get_challenge(challenge_id: str, repository: Repository = Depends(get_reposi
         concept_tags=challenge["concept_tags"],
         hint_count=len(challenge["hints"]),
         locked=bool(reason), unlock_message=reason,
+        mission_number=mission_num,
+        mission_title=mission_title,
+        is_daily=is_daily,
+        stars=stars,
+        xp_value=DIFFICULTY_BASE_XP.get(challenge.get("difficulty", "beginner"), 100),
+        hints_used=hints_used,
+        mission_steps=DEFAULT_MISSION_STEPS,
     )
 
 
@@ -120,7 +173,7 @@ def save_browser_attempt(
     identity: Identity = Depends(current_identity),
 ):
     challenge = require_challenge(repository, challenge_id)
-    require_learner(repository, identity.id)
+    learner = require_learner(repository, identity.id)
     require_unlocked(repository, challenge, identity.id)
     if len(submission.categories) != len(challenge["visible_tests"]):
         raise HTTPException(status_code=422, detail="A result is required for every visible test.")
@@ -130,6 +183,10 @@ def save_browser_attempt(
         for index, category in enumerate(submission.categories)
     ]
     passed = all(row.category == "passed" for row in results)
+    
+    prior_attempts = repository.list_attempts(identity.id)
+    already_solved = any(a.get("challenge_id") == challenge_id and a.get("passed") for a in prior_attempts)
+
     record = repository.save_attempt({
         "challenge_id": challenge_id,
         "learner_id": identity.id,
@@ -138,12 +195,75 @@ def save_browser_attempt(
         "passed": passed,
         "concepts_practiced": challenge["concept_tags"],
     })
+
+    from .gamification import calculate_challenge_xp, calculate_gamification_state, get_daily_challenge
+    all_challenges = repository.list_challenges()
+    daily = get_daily_challenge(all_challenges)
+    is_daily = (challenge_id == daily["id"]) if daily else False
+
+    hint_positions = learner.get("hint_positions") or {}
+    hints_used = hint_positions.get(challenge_id, 0)
+    
+    earned_xp = 0
+    solo_bonus = False
+    stars = 0
+    if passed:
+        earned_xp, solo_bonus, stars = calculate_challenge_xp(
+            challenge["difficulty"], hints_used, is_daily=is_daily, already_solved=already_solved
+        )
+
+    all_attempts = repository.list_attempts(identity.id)
+    g_state = calculate_gamification_state(identity.id, all_attempts, all_challenges, hint_positions)
+
     return AttemptResponse(
         id=record["id"], challenge_id=challenge_id, passed=passed, results=results,
         concepts_practiced=challenge["concept_tags"], submitted_at=record["submitted_at"],
         failure_explanation=explain_failure(challenge["concept_tags"], results),
         feedback_source="local" if not passed else None,
+        earned_xp=earned_xp,
+        solo_bonus=solo_bonus,
+        hints_used=hints_used,
+        stars=stars,
+        total_xp=g_state["total_xp"],
+        current_level=g_state["current_level"],
+        level_name=g_state["level_name"],
     )
+
+
+@app.get("/api/challenges/{challenge_id}/attempts", response_model=list[StoredAttempt])
+def list_challenge_attempts(
+    challenge_id: str,
+    repository: Repository = Depends(get_repository),
+    identity: Identity = Depends(current_identity),
+):
+    require_challenge(repository, challenge_id)
+    require_learner(repository, identity.id)
+    attempts = repository.list_attempts(identity.id)
+    filtered = [
+        StoredAttempt(
+            id=a.get("id"),
+            challenge_id=a["challenge_id"],
+            submitted_code=a.get("submitted_code", ""),
+            test_results=[TestResult(**r) for r in a.get("test_results", [])],
+            passed=a.get("passed", False),
+            submitted_at=datetime.fromisoformat(str(a["submitted_at"]).replace("Z", "+00:00")),
+        )
+        for a in attempts
+        if a.get("challenge_id") == challenge_id
+    ]
+    return filtered
+
+
+@app.post("/api/challenges/{challenge_id}/analyze-diff", response_model=DiffAnalysisResponse)
+def analyze_diff(
+    challenge_id: str,
+    request: DiffAnalysisRequest,
+    repository: Repository = Depends(get_repository),
+    identity: Identity = Depends(current_identity),
+):
+    challenge = require_challenge(repository, challenge_id)
+    analysis = analyze_code_diff(request.before_code, request.after_code, challenge)
+    return DiffAnalysisResponse(**analysis)
 
 
 @app.post("/api/challenges/{challenge_id}/hints/next", response_model=HintResponse)
@@ -204,6 +324,10 @@ def submit_code(
     except RunnerUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     passed = bool(results) and all(result.category == "passed" for result in results)
+    
+    prior_attempts = repository.list_attempts(identity.id)
+    already_solved = any(a.get("challenge_id") == challenge_id and a.get("passed") for a in prior_attempts)
+
     record = repository.save_attempt({
         "challenge_id": challenge_id,
         "learner_id": identity.id,
@@ -212,12 +336,40 @@ def submit_code(
         "passed": passed,
         "concepts_practiced": challenge["concept_tags"],
     })
+
+    from .gamification import calculate_challenge_xp, calculate_gamification_state, get_daily_challenge
+    all_challenges = repository.list_challenges()
+    daily = get_daily_challenge(all_challenges)
+    is_daily = (challenge_id == daily["id"]) if daily else False
+
+    learner = repository.get_learner(identity.id)
+    hint_positions = (learner.get("hint_positions") or {}) if learner else {}
+    hints_used = hint_positions.get(challenge_id, 0)
+
+    earned_xp = 0
+    solo_bonus = False
+    stars = 0
+    if passed:
+        earned_xp, solo_bonus, stars = calculate_challenge_xp(
+            challenge["difficulty"], hints_used, is_daily=is_daily, already_solved=already_solved
+        )
+
+    all_attempts = repository.list_attempts(identity.id)
+    g_state = calculate_gamification_state(identity.id, all_attempts, all_challenges, hint_positions)
+
     return AttemptResponse(
         id=record["id"], challenge_id=challenge_id, passed=passed,
         results=results, concepts_practiced=challenge["concept_tags"],
         submitted_at=record["submitted_at"],
         failure_explanation=explain_failure(challenge["concept_tags"], results),
         feedback_source="local" if not passed else None,
+        earned_xp=earned_xp,
+        solo_bonus=solo_bonus,
+        hints_used=hints_used,
+        stars=stars,
+        total_xp=g_state["total_xp"],
+        current_level=g_state["current_level"],
+        level_name=g_state["level_name"],
     )
 
 
@@ -225,7 +377,7 @@ def submit_code(
 def get_progress(learner_id: str, repository: Repository = Depends(get_repository), identity: Identity = Depends(current_identity)):
     if learner_id != identity.id:
         raise HTTPException(403, "You can only view your own progress.")
-    require_learner(repository, learner_id)
+    learner = require_learner(repository, learner_id)
     attempts = repository.list_attempts(learner_id)
     grouped: dict[str, list[dict]] = defaultdict(list)
     concepts = set()
@@ -247,6 +399,10 @@ def get_progress(learner_id: str, repository: Repository = Depends(get_repositor
     challenges_by_id = {c["id"]: c for c in all_challenges}
     recurring_mistakes = detect_recurring_mistakes(attempts, challenges_by_id)
 
+    from .gamification import calculate_gamification_state
+    hint_positions = (learner.get("hint_positions") or {}) if learner else {}
+    g_state = calculate_gamification_state(learner_id, attempts, all_challenges, hint_positions)
+
     return LearnerProgress(
         learner_id=learner_id,
         total_attempts=len(attempts),
@@ -256,9 +412,21 @@ def get_progress(learner_id: str, repository: Repository = Depends(get_repositor
         concepts=concept_evidence,
         recommendations=recommendations,
         recurring_mistakes=recurring_mistakes,
+        total_xp=g_state["total_xp"],
+        current_level=g_state["current_level"],
+        level_name=g_state["level_name"],
+        next_level_xp=g_state["next_level_xp"],
+        level_progress_pct=g_state["level_progress_pct"],
+        daily_challenge_id=g_state["daily_challenge_id"],
+        daily_challenge_title=g_state["daily_challenge_title"],
+        daily_challenge_completed=g_state["daily_challenge_completed"],
+        daily_streak=g_state["daily_streak"],
+        badges=g_state["badges"],
+        progress_map=g_state["progress_map"],
     )
 
 
 @app.get("/api/me/progress", response_model=LearnerProgress)
 def my_progress(repository: Repository = Depends(get_repository), identity: Identity = Depends(current_identity)):
     return get_progress(identity.id, repository, identity)
+

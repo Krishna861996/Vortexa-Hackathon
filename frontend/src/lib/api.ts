@@ -2,6 +2,26 @@ import { getSupabase } from "./supabase";
 export type Difficulty = "beginner" | "easy" | "medium" | "hard" | "advanced";
 export type TestCategory = "passed" | "wrong output" | "runtime error" | "timeout";
 
+export interface AchievementBadge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  unlocked_at?: string | null;
+}
+
+export interface MissionMapNode {
+  mission_number: number;
+  challenge_id: string;
+  title: string;
+  difficulty: Difficulty;
+  status: "locked" | "available" | "current" | "completed";
+  stars: number;
+  xp_earned: number;
+  is_daily: boolean;
+}
+
 export interface ChallengeSummary {
   locked: boolean;
   unlock_message: string | null;
@@ -10,6 +30,11 @@ export interface ChallengeSummary {
   title: string;
   difficulty: Difficulty;
   concept_tags: string[];
+  mission_number?: number;
+  mission_title?: string | null;
+  is_daily?: boolean;
+  stars?: number;
+  xp_value?: number;
 }
 
 export interface VisibleTest {
@@ -23,6 +48,8 @@ export interface ChallengeDetail extends ChallengeSummary {
   starter_code: string;
   visible_tests: VisibleTest[];
   hint_count: number;
+  hints_used?: number;
+  mission_steps?: string[];
 }
 
 export interface HintResponse {
@@ -49,6 +76,14 @@ export interface AttemptResponse {
   submitted_at: string;
   failure_explanation: string | null;
   feedback_source: "local" | null;
+  earned_xp?: number;
+  solo_bonus?: boolean;
+  hints_used?: number;
+  stars?: number;
+  total_xp?: number;
+  current_level?: number;
+  level_name?: string;
+  new_badges?: string[];
 }
 
 export interface ChallengeProgress {
@@ -100,6 +135,17 @@ export interface LearnerProgress {
   concepts: ConceptProgress[];
   recommendations: PracticeRecommendation[];
   recurring_mistakes?: RecurringMistake[];
+  total_xp?: number;
+  current_level?: number;
+  level_name?: string;
+  next_level_xp?: number;
+  level_progress_pct?: number;
+  daily_challenge_id?: string | null;
+  daily_challenge_title?: string | null;
+  daily_challenge_completed?: boolean;
+  daily_streak?: number;
+  badges?: AchievementBadge[];
+  progress_map?: MissionMapNode[];
 }
 
 export const DIFFICULTY_ORDER: Difficulty[] = ["beginner", "easy", "medium", "hard", "advanced"];
@@ -134,12 +180,43 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+export interface DiffHunk {
+  type: "equal" | "added" | "removed";
+  before_line: number | null;
+  after_line: number | null;
+  text: string;
+}
+
+export interface DiffAnalysisResponse {
+  diff_hunks: DiffHunk[];
+  before_highlights: number[];
+  after_highlights: number[];
+  explanations: string[];
+  why_it_helps: string[];
+}
+
+export interface StoredAttempt {
+  id?: number | null;
+  challenge_id: string;
+  submitted_code: string;
+  test_results: TestResult[];
+  passed: boolean;
+  submitted_at: string;
+}
+
 export const api = {
   savePractice: (id: string, code: string, results: TestResult[]) =>
     request<AttemptResponse>(`/api/challenges/${encodeURIComponent(id)}/practice-attempts`, { method: "POST", body: JSON.stringify({ code, categories: results.map((row) => row.category) }) }),
   listChallenges: (signal?: AbortSignal) => request<ChallengeSummary[]>("/api/challenges", { signal }),
   getChallenge: (id: string, signal?: AbortSignal) =>
     request<ChallengeDetail>(`/api/challenges/${encodeURIComponent(id)}`, { signal }),
+  getChallengeAttempts: (id: string, signal?: AbortSignal) =>
+    request<StoredAttempt[]>(`/api/challenges/${encodeURIComponent(id)}/attempts`, { signal }),
+  analyzeDiff: (id: string, beforeCode: string, afterCode: string) =>
+    request<DiffAnalysisResponse>(`/api/challenges/${encodeURIComponent(id)}/analyze-diff`, {
+      method: "POST",
+      body: JSON.stringify({ before_code: beforeCode, after_code: afterCode }),
+    }),
   nextHint: (id: string, hintIndex: number) =>
     request<HintResponse>(`/api/challenges/${encodeURIComponent(id)}/hints/next`, {
       method: "POST",
