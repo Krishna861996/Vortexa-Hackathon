@@ -79,6 +79,21 @@ def list_challenges(repository: Repository = Depends(get_repository), identity: 
     return summaries
 
 
+def clean_starter_code(code: str) -> str:
+    lines = []
+    for line in code.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        if stripped in ("count = 0", "total = 0"):
+            continue
+        lines.append(line)
+    cleaned = "\n".join(lines).strip()
+    if not cleaned.endswith("pass") and "return" not in cleaned:
+        cleaned += "\n    pass"
+    return cleaned
+
+
 @app.get("/api/challenges/{challenge_id}", response_model=ChallengeDetail)
 def get_challenge(challenge_id: str, repository: Repository = Depends(get_repository), identity: Identity | None = Depends(optional_identity)):
     challenge = require_challenge(repository, challenge_id)
@@ -89,7 +104,7 @@ def get_challenge(challenge_id: str, repository: Repository = Depends(get_reposi
         description=challenge["description"],
         difficulty=challenge["difficulty"],
         function_name=challenge["function_name"],
-        starter_code=challenge["starter_code"],
+        starter_code=clean_starter_code(challenge["starter_code"]),
         visible_tests=challenge["visible_tests"],
         concept_tags=challenge["concept_tags"],
         hint_count=len(challenge["hints"]),

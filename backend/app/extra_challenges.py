@@ -5,7 +5,7 @@ def question(id, title, level, description, signature, examples, hidden, hints, 
     return {
         "id": id, "title": title, "difficulty": level, "description": description,
         "function_name": signature.split("(")[0],
-        "starter_code": f"def {signature}:\n    # Write your solution here\n    pass",
+        "starter_code": f"def {signature}:\n    pass",
         "visible_tests": [{"input": args, "expected": expected} for args, expected in examples],
         "hints": hints, "concept_tags": tags,
     }, [{"input": args, "expected": expected} for args, expected in hidden]

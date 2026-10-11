@@ -14,6 +14,15 @@ import { runVisibleTests } from "@/lib/pyodide";
 type LoadState = "loading" | "ready" | "error";
 type RevealedHint = { number: number; text: string };
 
+function cleanStarterCode(code: string): string {
+  const lines = code.split("\n").filter((line) => {
+    const trimmed = line.trim();
+    return !trimmed.startsWith("#") && trimmed !== "count = 0" && trimmed !== "total = 0";
+  });
+  const cleaned = lines.join("\n").trim();
+  return cleaned.endsWith("pass") || cleaned.includes("return") ? cleaned : `${cleaned}\n    pass`;
+}
+
 export default function ChallengePage() {
   return <RequireLogin><ChallengeContent /></RequireLogin>;
 }
@@ -45,7 +54,7 @@ function ChallengeContent() {
     api.getChallenge(id, controller.signal)
       .then((item) => {
         setChallenge(item);
-        setCode(item.starter_code);
+        setCode(cleanStarterCode(item.starter_code));
         setAttempt(null);
         setCelebrating(false);
         setNextChallenge(null);
@@ -159,7 +168,7 @@ function ChallengeContent() {
           <div className="space-y-6 lg:sticky lg:top-6">
             <section className="panel overflow-hidden" aria-labelledby="editor-heading">
               <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-6"><div><p className="text-[11px] font-bold uppercase tracking-[.16em] text-slate-500">Workspace</p><h2 id="editor-heading" className="mt-1 text-lg font-semibold text-white">Your Python code</h2></div><span className="rounded-lg bg-[#172c43] px-2.5 py-1.5 font-mono text-xs text-lime-200">solution.py</span></div>
-              <div className="bg-[#090e15] p-4 sm:p-5"><label htmlFor="python-editor" className="sr-only">Python solution</label><textarea id="python-editor" ref={editorRef} value={code} onChange={(event) => setCode(event.target.value)} onKeyDown={handleEditorKeyDown} spellCheck={false} autoCapitalize="off" autoCorrect="off" className="block min-h-88 w-full resize-y rounded-lg border border-white/10 bg-[#0c121b] p-4 font-mono text-[13px] leading-7 text-slate-100 outline-none placeholder:text-slate-600 focus:border-lime-300/60 sm:min-h-105 sm:text-sm" placeholder="Write your Python function here…" /></div>
+              <div className="bg-[#090e15] p-4 sm:p-5"><label htmlFor="python-editor" className="sr-only">Python solution</label><textarea id="python-editor" ref={editorRef} value={code} onChange={(event) => setCode(event.target.value)} onKeyDown={handleEditorKeyDown} spellCheck={false} autoCapitalize="off" autoCorrect="off" className="block min-h-88 w-full resize-y rounded-lg border border-white/10 bg-[#0c121b] p-4 font-mono text-[13px] leading-7 text-slate-100 outline-none placeholder:text-slate-600 focus:border-lime-300/60 sm:min-h-105 sm:text-sm" placeholder="Enter your code here" /></div>
               <div className="flex flex-col gap-4 border-t border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"><p className="text-xs leading-5 text-slate-500">Keep the function name and parameters from the starter code.</p><button type="button" className="primary-button shrink-0" onClick={runCode} disabled={running || !code.trim()}>{running ? "Running tests…" : "Run code"}<span aria-hidden="true"><QuestIcon name="terminal" className="h-4 w-4" /></span></button></div>
             </section>
             {celebrating ? <SolvedCelebration next={nextChallenge} onClose={() => setCelebrating(false)} /> : null}

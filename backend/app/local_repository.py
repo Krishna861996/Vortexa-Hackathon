@@ -16,7 +16,7 @@ CHALLENGES: list[dict[str, Any]] = [
     {
         "id": "add-numbers", "title": "Add two numbers", "difficulty": "beginner",
         "description": "Return the sum of two integers a and b. Keep the function name and parameters as shown.",
-        "function_name": "add_numbers", "starter_code": "def add_numbers(a, b):\n    # Return a + b\n    pass",
+        "function_name": "add_numbers", "starter_code": "def add_numbers(a, b):\n    pass",
         "visible_tests": [{"input": [2, 3], "expected": 5}, {"input": [-1, 4], "expected": 3}],
         "hints": [
             "The function needs to give back one value made from both inputs.",
@@ -28,7 +28,7 @@ CHALLENGES: list[dict[str, Any]] = [
     {
         "id": "is-even", "title": "Check if a number is even", "difficulty": "easy",
         "description": "Return True when integer n is even, otherwise return False.",
-        "function_name": "is_even", "starter_code": "def is_even(n):\n    # Return a boolean\n    pass",
+        "function_name": "is_even", "starter_code": "def is_even(n):\n    pass",
         "visible_tests": [{"input": [4], "expected": True}, {"input": [7], "expected": False}],
         "hints": [
             "Look for a property that separates even numbers from odd numbers.",
@@ -40,7 +40,7 @@ CHALLENGES: list[dict[str, Any]] = [
     {
         "id": "reverse-text", "title": "Reverse a string", "difficulty": "medium",
         "description": "Return text with its characters in reverse order. String slicing is available.",
-        "function_name": "reverse_text", "starter_code": "def reverse_text(text):\n    # Return the reversed text\n    pass",
+        "function_name": "reverse_text", "starter_code": "def reverse_text(text):\n    pass",
         "visible_tests": [{"input": ["code"], "expected": "edoc"}, {"input": ["a"], "expected": "a"}],
         "hints": [
             "Think about reading the characters from the end toward the start.",
@@ -52,7 +52,7 @@ CHALLENGES: list[dict[str, Any]] = [
     {
         "id": "count-vowels", "title": "Count vowels", "difficulty": "hard",
         "description": "Count a, e, i, o, and u in text, regardless of letter case. Use a for loop and basic string operations.",
-        "function_name": "count_vowels", "starter_code": "def count_vowels(text):\n    count = 0\n    # Count vowels and return count\n    pass",
+        "function_name": "count_vowels", "starter_code": "def count_vowels(text):\n    pass",
         "visible_tests": [{"input": ["hello"], "expected": 2}, {"input": ["SKY"], "expected": 0}],
         "hints": [
             "Keep a count as you inspect the text one character at a time.",
@@ -64,7 +64,7 @@ CHALLENGES: list[dict[str, Any]] = [
     {
         "id": "fizz-buzz", "title": "FizzBuzz value", "difficulty": "advanced",
         "description": "For integer n, return FizzBuzz if divisible by both 3 and 5, Fizz if only 3, Buzz if only 5, otherwise return n as a string.",
-        "function_name": "fizz_buzz", "starter_code": "def fizz_buzz(n):\n    # Return a string for n\n    pass",
+        "function_name": "fizz_buzz", "starter_code": "def fizz_buzz(n):\n    pass",
         "visible_tests": [{"input": [3], "expected": "Fizz"}, {"input": [5], "expected": "Buzz"}, {"input": [2], "expected": "2"}],
         "hints": [
             "Each word depends on whether the number is divisible by 3 or 5.",
@@ -76,7 +76,7 @@ CHALLENGES: list[dict[str, Any]] = [
     {
         "id": "sum-list", "title": "Sum a list", "difficulty": "easy",
         "description": "Return the sum of the integers in numbers. Use a loop. An empty list should return 0.",
-        "function_name": "sum_list", "starter_code": "def sum_list(numbers):\n    total = 0\n    # Visit each number and return the total\n    pass",
+        "function_name": "sum_list", "starter_code": "def sum_list(numbers):\n    pass",
         "visible_tests": [{"input": [[1, 2, 3]], "expected": 6}, {"input": [[]], "expected": 0}],
         "hints": [
             "Think about building one running total from the values in the list.",
